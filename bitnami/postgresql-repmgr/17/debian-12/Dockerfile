@@ -69,7 +69,6 @@ RUN set -eux; \
   install -d -o 1001 -g 0 -m 0775 /opt/bitnami/repmgr/tmp /opt/bitnami/repmgr/logs; \
   # bitnami data dir (ok if you also mount a volume at /bitnami)
   install -d -o 1001 -g 0 -m 0775 /bitnami /bitnami/postgresql; \
-  chown -R 1001:1001 /postgresql; \
   chown -R 1001:1001 /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami; \
   chmod -R g+rwX /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami; \
   # ensure repmgr.conf points PID to the tmp dir we control

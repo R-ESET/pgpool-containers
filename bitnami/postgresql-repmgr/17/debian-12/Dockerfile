@@ -64,6 +64,16 @@ ENV APP_VERSION="17.5.0" \
 
 EXPOSE 5432
 
+# Ensure repmgr runtime dirs exist and are writable by non-root (UID 1001)
+RUN set -eux; \
+  install -d -o 1001 -g 0 -m 0775 /opt/bitnami/repmgr/tmp /opt/bitnami/repmgr/logs; \
+  install -d -o 1001 -g 0 -m 0775 /bitnami /bitnami/postgresql; \
+  chown -R 1001:0 /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami; \
+  chmod -R g+rwX /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami
+
+# (Optional) Make the PID path explicit; harmless even if scripts already default to it
+ENV REPMGRD_PID_FILE=/opt/bitnami/repmgr/tmp/repmgr.pid
+
 USER 1001
 ENTRYPOINT [ "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh" ]
 CMD [ "/opt/bitnami/scripts/postgresql-repmgr/run.sh" ]

@@ -28,9 +28,9 @@ RUN install_packages ca-certificates curl libbrotli1 libbsd0 libcom-err2 libcurl
 RUN set -eux; \
     mkdir -p /tmp/bitnami/pkg/cache/ && cd /tmp/bitnami/pkg/cache/; \
     COMPONENTS=( \
-      "wait-for-port-1.0.9-2-linux-${OS_ARCH}-debian-12" \
-      "postgresql-client-17.5.0-1-linux-${OS_ARCH}-debian-12" \
-      "pgpool-4.6.2-1-linux-${OS_ARCH}-debian-12" \
+      "postgresql-17.5.0-11-linux-${OS_ARCH}-debian-12" \
+      "repmgr-5.3.0-7-linux-${OS_ARCH}-debian-12" \
+      "postgresql-repmgr-17.5.0-11-linux-${OS_ARCH}-debian-12" \
     ); \
     for COMPONENT in "${COMPONENTS[@]}"; do \
       curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O; \

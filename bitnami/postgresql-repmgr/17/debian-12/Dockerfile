@@ -26,19 +26,18 @@ SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
 # Install required system packages and dependencies
 RUN install_packages ca-certificates curl libbrotli1 libbsd0 libcom-err2 libcurl4 libedit2 libffi8 libgcc-s1 libgmp10 libgnutls30 libgssapi-krb5-2 libhogweed6 libicu72 libidn2-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 libldap-2.5-0 liblz4-1 liblzma5 libmd0 libnettle8 libnghttp2-14 libp11-kit0 libpcre3 libpsl5 libreadline8 librtmp1 libsasl2-2 libsqlite3-0 libssh2-1 libssl3 libstdc++6 libtasn1-6 libtinfo6 libunistring2 libuuid1 libxml2 libxslt1.1 libzstd1 locales procps zlib1g
 RUN set -eux; \
-    mkdir -p /tmp/bitnami/pkg/cache/ && cd /tmp/bitnami/pkg/cache/; \
-    COMPONENTS=( \
-      "postgresql-17.5.0-11-linux-${OS_ARCH}-debian-12" \
-      "repmgr-5.3.0-7-linux-${OS_ARCH}-debian-12" \
-      "postgresql-repmgr-17.5.0-11-linux-${OS_ARCH}-debian-12" \
-    ); \
-    for COMPONENT in "${COMPONENTS[@]}"; do \
-      curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O; \
-      curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O; \
-      sha256sum -c "${COMPONENT}.tar.gz.sha256"; \
-      tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner; \
-      rm -f "${COMPONENT}.tar.gz" "${COMPONENT}.tar.gz.sha256"; \
-    done
+  mkdir -p /tmp/bitnami/pkg/cache/ && cd /tmp/bitnami/pkg/cache/; \
+  COMPONENTS=( \
+    "postgresql-17.5.0-11-linux-${OS_ARCH}-debian-12" \
+    "postgresql-repmgr-17.5.0-11-linux-${OS_ARCH}-debian-12" \
+  ); \
+  for COMPONENT in "${COMPONENTS[@]}"; do \
+    curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O; \
+    curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O; \
+    sha256sum -c "${COMPONENT}.tar.gz.sha256"; \
+    tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner; \
+    rm -f "${COMPONENT}.tar.gz" "${COMPONENT}.tar.gz.sha256"; \
+  done
 RUN apt-get update && apt-get upgrade -y && \
     apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
 RUN chmod g+rwX /opt/bitnami

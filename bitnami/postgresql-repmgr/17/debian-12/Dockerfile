@@ -38,6 +38,7 @@ RUN set -eux; \
     tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner; \
     rm -f "${COMPONENT}.tar.gz" "${COMPONENT}.tar.gz.sha256"; \
   done
+RUN chown -R 1001:1001 /opt/bitnami/postgresql /bitnami || true
 RUN apt-get update && apt-get upgrade -y && \
     apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
 RUN chmod g+rwX /opt/bitnami
@@ -64,51 +65,6 @@ ENV APP_VERSION="17.5.0" \
 
 EXPOSE 5432
 
-# Ensure repmgr runtime dirs exist and are writable by non-root (UID 1001)
-RUN set -eux; \
-  install -d -o 1001 -g 0 -m 0775 /opt/bitnami/repmgr/tmp /opt/bitnami/repmgr/logs; \
-  # bitnami data dir (ok if you also mount a volume at /bitnami)
-  install -d -o 1001 -g 0 -m 0775 /bitnami /bitnami/postgresql; \
-  chown -R 1001:0 /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami; \
-  chmod -R g+rwX /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami; \
-  # ensure repmgr.conf points PID to the tmp dir we control
-  if [ -f /opt/bitnami/repmgr/conf/repmgr.conf ]; then \
-    grep -q "^[[:space:]]*pid_file" /opt/bitnami/repmgr/conf/repmgr.conf \
-      && sed -ri "s|^[[:space:]]*pid_file.*$|pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'|" /opt/bitnami/repmgr/conf/repmgr.conf \
-      || echo "pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'" >> /opt/bitnami/repmgr/conf/repmgr.conf; \
-  fi
-      
-# (optional) make it explicit for good measure
-ENV REPMGRD_PID_FILE=/opt/bitnami/repmgr/tmp/repmgr.pid
 USER 1001
-
-# ---- startup wrapper to fix perms on mounted volumes + PID dir ----
-RUN printf '%s\n' '#!/bin/bash
-set -euo pipefail
-
-# Ensure data volume exists and is owned by 1001 (Railway mounts at /bitnami)
-mkdir -p /bitnami/postgresql || true
-chown -R 1001:0 /bitnami || true
-chmod -R g+rwX /bitnami || true
-
-# Ensure repmgr runtime dirs are present & writable
-mkdir -p /opt/bitnami/repmgr/tmp /opt/bitnami/repmgr/logs
-chown -R 1001:0 /opt/bitnami/repmgr
-chmod -R g+rwX /opt/bitnami/repmgr
-
-# Ensure repmgrd uses our writable PID path
-if [ -f /opt/bitnami/repmgr/conf/repmgr.conf ]; then
-  if grep -q "^[[:space:]]*pid_file" /opt/bitnami/repmgr/conf/repmgr.conf; then
-    sed -ri "s|^[[:space:]]*pid_file.*$|pid_file='\''/opt/bitnami/repmgr/tmp/repmgr.pid'\''|" /opt/bitnami/repmgr/conf/repmgr.conf
-  else
-    echo "pid_file='\''/opt/bitnami/repmgr/tmp/repmgr.pid'\''" >> /opt/bitnami/repmgr/conf/repmgr.conf
-  fi
-fi
-
-# Hand off to Bitnami entrypoint
-exec /opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh "$@"' > /usr/local/bin/entrypoint-wrap.sh \
- && chmod +x /usr/local/bin/entrypoint-wrap.sh
-
-
 ENTRYPOINT [ "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh" ]
 CMD [ "/opt/bitnami/scripts/postgresql-repmgr/run.sh" ]

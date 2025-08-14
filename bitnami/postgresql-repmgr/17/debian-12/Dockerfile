@@ -67,13 +67,19 @@ EXPOSE 5432
 # Ensure repmgr runtime dirs exist and are writable by non-root (UID 1001)
 RUN set -eux; \
   install -d -o 1001 -g 0 -m 0775 /opt/bitnami/repmgr/tmp /opt/bitnami/repmgr/logs; \
+  # bitnami data dir (ok if you also mount a volume at /bitnami)
   install -d -o 1001 -g 0 -m 0775 /bitnami /bitnami/postgresql; \
   chown -R 1001:0 /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami; \
-  chmod -R g+rwX /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami
+  chmod -R g+rwX /opt/bitnami/repmgr /opt/bitnami/postgresql /bitnami; \
+  # ensure repmgr.conf points PID to the tmp dir we control
+  if [ -f /opt/bitnami/repmgr/conf/repmgr.conf ]; then \
+    grep -q "^[[:space:]]*pid_file" /opt/bitnami/repmgr/conf/repmgr.conf \
+      && sed -ri "s|^[[:space:]]*pid_file.*$|pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'|" /opt/bitnami/repmgr/conf/repmgr.conf \
+      || echo "pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'" >> /opt/bitnami/repmgr/conf/repmgr.conf; \
+  fi
 
-# (Optional) Make the PID path explicit; harmless even if scripts already default to it
+# (optional) make it explicit for good measure
 ENV REPMGRD_PID_FILE=/opt/bitnami/repmgr/tmp/repmgr.pid
-
 USER 1001
 ENTRYPOINT [ "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh" ]
 CMD [ "/opt/bitnami/scripts/postgresql-repmgr/run.sh" ]

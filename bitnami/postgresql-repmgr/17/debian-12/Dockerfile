@@ -83,26 +83,28 @@ COPY <<'EOF' /opt/bitnami/scripts/repmgr-root-entrypoint.sh
 #!/bin/sh
 set -eu
 
-PG_BASE=/bitnami/postgresql
-PGDATA="$PG_BASE/data"
-PGLOG=/opt/bitnami/postgresql/logs
-PGCONF=/opt/bitnami/postgresql/conf
-REPMGR_TMP=/opt/bitnami/repmgr/tmp
-PGSOCK=/opt/bitnami/postgresql/tmp   # socket dir used by Bitnami configs
+# Ensure dirs exist even if volumes replaced them
+mkdir -p /opt/bitnami/postgresql/conf /opt/bitnami/postgresql/logs \
+         /opt/bitnami/repmgr/tmp       /bitnami/postgresql \
+         /opt/bitnami/postgresql/tmp
 
-# 1) Ensure dirs exist even if Railway volumes replaced them
-mkdir -p "$PGDATA" "$PGLOG" "$PGCONF" "$REPMGR_TMP" "$PGSOCK"
+# Take ownership of mounted paths so uid 1001 can write configs/data/PIDs
+chown -R 1001:1001 /opt/bitnami/postgresql /opt/bitnami/repmgr /bitnami || true
+chmod -R 775 /opt/bitnami/postgresql/conf /opt/bitnami/postgresql/logs \
+             /opt/bitnami/repmgr/tmp /opt/bitnami/postgresql/tmp || true
 
-# 2) Make them writable by uid 1001 (Bitnami runs as 1001)
-chown -R 1001:1001 /opt/bitnami/postgresql /opt/bitnami/repmgr "$PG_BASE" || true
-chmod -R 775 "$PGLOG" "$REPMGR_TMP" "$PGCONF" "$PGSOCK" || true
-
-# 3) Clean stale locks (very common after fast restarts or partial clones)
-rm -f "$PGDATA/postmaster.pid" "$PGDATA"/postmaster.opts 2>/dev/null || true
+# Clean stale PIDs (repmgr + postgres)
 rm -f "${REPMGRD_PIDFILE:-/opt/bitnami/repmgr/tmp/repmgr.pid}" /tmp/repmgrd.pid 2>/dev/null || true
+PGDATA="${POSTGRESQL_DATA_DIR:-/bitnami/postgresql/data}"
+rm -f "$PGDATA/postmaster.pid" "$PGDATA"/postmaster.opts 2>/dev/null || true
 
-# 4) Ensure unix_socket_directories is valid: prefer /tmp (always present).
-#    If your custom postgresql.conf sets a different dir, create/own it.
+# If no cluster yet, make sure PGDATA is truly empty so pg_basebackup can populate it
+if [ ! -f "$PGDATA/PG_VERSION" ]; then
+  find "$PGDATA" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+fi
+
+# Ensure a valid unix socket directory (default to /tmp if not set)
+PGCONF=/opt/bitnami/postgresql/conf
 if [ -f "$PGCONF/postgresql.conf" ]; then
   if grep -q "^[[:space:]]*unix_socket_directories" "$PGCONF/postgresql.conf"; then
     SOCK_DIR="$(awk -F= '/^[[:space:]]*unix_socket_directories/ {gsub(/'\''|"/,"",$2); gsub(/[[:space:]]/,"",$2); print $2}' "$PGCONF/postgresql.conf" 2>/dev/null || echo)"
@@ -114,9 +116,6 @@ if [ -f "$PGCONF/postgresql.conf" ]; then
     printf "\nunix_socket_directories = '/tmp'\n" >> "$PGCONF/postgresql.conf"
   fi
 fi
-
-# Optional probes (don’t fail if they can’t be created)
-touch "$PGLOG/_probe" "$REPMGR_TMP/_probe" "$PGDATA/_probe" 2>/dev/null || true
 
 # Hand off to Bitnami's entrypoint as the non-root user (uid:gid 1001)
 exec gosu 1001:1001 /opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh "$@"

@@ -67,27 +67,28 @@ ENV APP_VERSION="17.5.0" \
     NSS_WRAPPER_LIB="/opt/bitnami/common/lib/libnss_wrapper.so" \
     PATH="/opt/bitnami/postgresql/bin:/opt/bitnami/repmgr/bin:$PATH"
 
-# ✅ Ensure repmgr tmp dir is safe
+# Ensure repmgr tmp folder exists and is owned by non-root user
 RUN mkdir -p /opt/bitnami/repmgr/tmp \
  && rm -f /opt/bitnami/repmgr/tmp/repmgr.pid \
  && chown -R 1001:1001 /opt/bitnami/repmgr
 
-# ✅ Add wrapper script to safely start repmgrd without PID issues
+# Wrapper script: cleans PID and starts repmgrd safely
 COPY <<'EOF' /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
 #!/bin/bash
 set -e
 
-# Clean stale pid
+# Clean stale pid file
 rm -f /opt/bitnami/repmgr/tmp/repmgr.pid
-chown -R 1001:1001 /opt/bitnami/repmgr/tmp
 
-echo ">>> Starting repmgrd in foreground mode (no pid file)..."
+echo ">>> Starting repmgrd (foreground, no pid file)..."
 exec repmgrd --daemonize=false --no-pid-file
 EOF
 RUN chmod +x /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
 
 EXPOSE 5432
 
+# Run everything as non-root UID 1001
 USER 1001
+
 ENTRYPOINT [ "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh" ]
 CMD [ "/opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh" ]

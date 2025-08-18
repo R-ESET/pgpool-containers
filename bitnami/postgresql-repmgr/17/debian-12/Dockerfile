@@ -24,7 +24,7 @@
   COPY prebuildfs /
   SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
   # Install required system packages and dependencies
-  RUN install_packages ca-certificates curl libbrotli1 libbsd0 libcom-err2 libcurl4 libedit2 libffi8 libgcc-s1 libgmp10 libgnutls30 libgssapi-krb5-2 libhogweed6 libicu72 libidn2-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 libldap-2.5-0 liblz4-1 liblzma5 libmd0 libnettle8 libnghttp2-14 libp11-kit0 libpcre3 libpsl5 libreadline8 librtmp1 libsasl2-2 libsqlite3-0 libssh2-1 libssl3 libstdc++6 libtasn1-6 libtinfo6 libunistring2 libuuid1 libxml2 libxslt1.1 libzstd1 locales procps zlib1g
+  RUN install_packages ca-certificates curl libbrotli1 libbsd0 libcom-err2 libcurl4 libedit2 libffi8 libgcc-s1 libgmp10 libgnutls30 libgssapi-krb5-2 libhogweed6 libicu72 libidn2-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 libldap-2.5-0 liblz4-1 liblzma5 libmd0 libnettle8 libnghttp2-14 libp11-kit0 libpcre3 libpsl5 libreadline8 librtmp1 libsasl2-2 libsqlite3-0 libssh2-1 libssl3 libstdc++6 libtasn1-6 libtinfo6 libunistring2 libuuid1 libxml2 libxslt1.1 libzstd1 locales procps zlib1g supervisor gosu
 
   RUN set -eux; \
     mkdir -p /tmp/bitnami/pkg/cache/ && cd /tmp/bitnami/pkg/cache/ ; \
@@ -71,37 +71,38 @@
 
 
 
-  # Prestart runtime fix
-COPY <<'EOF' /opt/bitnami/scripts/repmgr-prestart.sh
+# Force repmgrd PID path Bitnami expects
+RUN printf "\nrepmgrd_pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'\n" \
+    >> /opt/bitnami/repmgr/conf/repmgr.conf
+
+ENV TMPDIR="/opt/bitnami/repmgr/tmp" \
+    REPMGRD_PIDFILE="/opt/bitnami/repmgr/tmp/repmgr.pid"
+
+# Root entrypoint: fix volume ownership, then drop to uid 1001
+COPY <<'EOF' /opt/bitnami/scripts/repmgr-root-entrypoint.sh
 #!/bin/sh
 set -eu
 
-# Resolve defaults without using ":=" expansion
-TMPDIR="${TMPDIR:-/opt/bitnami/repmgr/tmp}"
-REPMGRD_PIDFILE="${REPMGRD_PIDFILE:-/opt/bitnami/repmgr/tmp/repmgr.pid}"
+# Ensure dirs exist even if Railway volume replaced them
+mkdir -p /opt/bitnami/repmgr/tmp /bitnami/postgresql /opt/bitnami/postgresql/logs
 
-# Ensure PID dir exists even if a volume replaced it at runtime
-mkdir -p "$TMPDIR"
-# Running as uid 1001; chmod is usually enough if the host mount already has correct owner
-chmod 775 "$TMPDIR" 2>/dev/null || true
+# Take ownership of mounted volumes so uid 1001 can write
+# (safe even if already correct; recursive to cover fresh mounts)
+chown -R 1001:1001 /opt/bitnami/repmgr /bitnami || true
+chmod -R 775 /opt/bitnami/repmgr/tmp || true
 
-# Remove any stale pid files (Bitnami path + common fallback)
-rm -f "$REPMGRD_PIDFILE" /tmp/repmgrd.pid || true
+# Clean any stale PID so repmgrd can start
+rm -f "${REPMGRD_PIDFILE}" /tmp/repmgrd.pid 2>/dev/null || true
 
-# Optional: show where repmgrd will write the pid (ignore errors)
+# Optional visibility
 repmgrd --show-pid-file >/dev/null 2>&1 || true
 
-exec "$@"
+# Exec Bitnami entrypoint as uid 1001, preserving CMD args
+exec gosu 1001:1001 /opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh "$@"
 EOF
+RUN chmod +x /opt/bitnami/scripts/repmgr-root-entrypoint.sh
 
-RUN chmod +x /opt/bitnami/scripts/repmgr-prestart.sh
-
-  # Keep these so config/env agree with Bitnami’s scripts
-  RUN printf "\nrepmgrd_pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'\n" \
-      >> /opt/bitnami/repmgr/conf/repmgr.conf
-  ENV TMPDIR="/opt/bitnami/repmgr/tmp" \
-      REPMGRD_PIDFILE="/opt/bitnami/repmgr/tmp/repmgr.pid"
-
-  USER 1001
-  ENTRYPOINT ["/opt/bitnami/scripts/repmgr-prestart.sh", "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh"]
-  CMD ["/opt/bitnami/scripts/postgresql-repmgr/run.sh"]
+# IMPORTANT: run as root so we can chown at runtime on Railway volumes
+USER root
+ENTRYPOINT ["/opt/bitnami/scripts/repmgr-root-entrypoint.sh"]
+CMD ["/opt/bitnami/scripts/postgresql-repmgr/run.sh"]

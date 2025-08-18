@@ -81,5 +81,6 @@ EOF
 
 RUN chmod +x /opt/bitnami/scripts/repmgr-prestart.sh
 
+USER 1001
 ENTRYPOINT ["/opt/bitnami/scripts/repmgr-prestart.sh", "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh"]
 CMD ["/opt/bitnami/scripts/postgresql-repmgr/run.sh"]

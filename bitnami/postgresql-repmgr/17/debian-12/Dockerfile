@@ -78,26 +78,23 @@ RUN printf "\nrepmgrd_pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'\n" \
 ENV TMPDIR="/opt/bitnami/repmgr/tmp" \
     REPMGRD_PIDFILE="/opt/bitnami/repmgr/tmp/repmgr.pid"
 
-# Root entrypoint: fix volume ownership, then drop to uid 1001
+# Root entrypoint: fix Railway volume perms each start, then drop to 1001
 COPY <<'EOF' /opt/bitnami/scripts/repmgr-root-entrypoint.sh
 #!/bin/sh
 set -eu
 
-# Ensure dirs exist even if Railway volume replaced them
-mkdir -p /opt/bitnami/repmgr/tmp /bitnami/postgresql /opt/bitnami/postgresql/logs
+# Ensure dirs exist even if volumes replaced them
+mkdir -p /opt/bitnami/postgresql/conf /opt/bitnami/postgresql/logs \
+         /opt/bitnami/repmgr/tmp       /bitnami/postgresql
 
-# Take ownership of mounted volumes so uid 1001 can write
-# (safe even if already correct; recursive to cover fresh mounts)
-chown -R 1001:1001 /opt/bitnami/repmgr /bitnami || true
-chmod -R 775 /opt/bitnami/repmgr/tmp || true
+# Take ownership of mounted paths so uid 1001 can write configs/data/PIDs
+chown -R 1001:1001 /opt/bitnami/postgresql /opt/bitnami/repmgr /bitnami || true
+chmod -R 775 /opt/bitnami/postgresql/conf /opt/bitnami/postgresql/logs /opt/bitnami/repmgr/tmp || true
 
-# Clean any stale PID so repmgrd can start
+# Clean stale repmgrd PID if any (Bitnami expects this path)
 rm -f "${REPMGRD_PIDFILE}" /tmp/repmgrd.pid 2>/dev/null || true
 
-# Optional visibility
-repmgrd --show-pid-file >/dev/null 2>&1 || true
-
-# Exec Bitnami entrypoint as uid 1001, preserving CMD args
+# Hand off to Bitnami's entrypoint as the non-root user (uid:gid 1001)
 exec gosu 1001:1001 /opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh "$@"
 EOF
 RUN chmod +x /opt/bitnami/scripts/repmgr-root-entrypoint.sh

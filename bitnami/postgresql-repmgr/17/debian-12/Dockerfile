@@ -69,34 +69,24 @@ RUN mkdir -p /opt/bitnami/repmgr/tmp \
  && chown -R 1001:1001 /opt/bitnami/repmgr/tmp \
  && chmod 775 /opt/bitnami/repmgr/tmp
 
-COPY <<'EOF' /opt/bitnami/scripts/repmgr-prestart.sh
-# Ensure PID dir exists even if a volume replaced it at runtime
-mkdir -p "${TMPDIR:-/opt/bitnami/repmgr/tmp}"
-chown -R 1001:1001 "${TMPDIR:-/opt/bitnami/repmgr/tmp}"
-chmod 775 "${TMPDIR:-/opt/bitnami/repmgr/tmp}"
-
-# Remove any stale pid files (both the Bitnami path and default /tmp fallback)
-rm -f "${REPMGRD_PIDFILE:-/opt/bitnami/repmgr/tmp/repmgr.pid}" /tmp/repmgrd.pid || true
-
-echo "$TMPDIR" ; echo "$REPMGRD_PIDFILE"
-ls -ld /opt/bitnami/repmgr/tmp
-# Watch repmgrd create the pid
-tail -f /opt/bitnami/postgresql/logs/postgresql.log &
-sleep 2 ; pgrep -af repmgrd ; ls -l /opt/bitnami/repmgr/tmp
-
-exec "$@"
-EOF
-
-RUN chmod +x /opt/bitnami/scripts/repmgr-prestart.sh
-
-
-# Force repmgrd to a single PID location Bitnami expects
+# Force repmgrd to use the tmp folder Bitnami expects
 RUN printf "\nrepmgrd_pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'\n" \
     >> /opt/bitnami/repmgr/conf/repmgr.conf
 
-# Make runtime env point to the same path (prevents double/competing pid files)
-ENV TMPDIR="/opt/bitnami/repmgr/tmp" \
-    REPMGRD_PIDFILE="/opt/bitnami/repmgr/tmp/repmgr.pid"
+# Ensure env is aligned
+ENV REPMGRD_PIDFILE=/opt/bitnami/repmgr/tmp/repmgr.pid
+
+# Prestart runtime fix
+COPY <<'EOF' /opt/bitnami/scripts/repmgr-prestart.sh
+#!/bin/bash
+set -e
+mkdir -p /opt/bitnami/repmgr/tmp
+chown -R 1001:1001 /opt/bitnami/repmgr/tmp
+chmod 775 /opt/bitnami/repmgr/tmp
+rm -f "${REPMGRD_PIDFILE}" || true
+exec "$@"
+EOF
+RUN chmod +x /opt/bitnami/scripts/repmgr-prestart.sh
 
 USER 1001
 ENTRYPOINT ["/opt/bitnami/scripts/repmgr-prestart.sh", "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh"]

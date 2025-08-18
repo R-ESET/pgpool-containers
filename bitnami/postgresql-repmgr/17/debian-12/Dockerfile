@@ -78,18 +78,6 @@ RUN printf "\nrepmgrd_pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'\n" \
 ENV TMPDIR="/opt/bitnami/repmgr/tmp" \
     REPMGRD_PIDFILE="/opt/bitnami/repmgr/tmp/repmgr.pid"
 
-# Create an include dir for HBA and tell pg_hba.conf to load it
-RUN mkdir -p /opt/bitnami/postgresql/conf/hba.d \
- && sed -i "1i include_dir '/opt/bitnami/postgresql/conf/hba.d'" /opt/bitnami/postgresql/conf/pg_hba.conf
-
-# Drop your local rules into hba.d (these are examples; adjust CIDRs to your network)
-RUN printf "%s\n" \
-  "local   all             all                                     trust" \
-  "host    all             all             127.0.0.1/32            md5" \
-  "host    all             all             ::1/128                 md5" \
-  "host    replication     repmgr          0.0.0.0/0               md5" \
-  > /opt/bitnami/postgresql/conf/hba.d/00-local.conf
-  
 # Root entrypoint: fix Railway volume perms each start, then drop to 1001
 COPY <<'EOF' /opt/bitnami/scripts/repmgr-root-entrypoint.sh
 #!/bin/sh
@@ -128,6 +116,36 @@ if [ -f "$PGCONF/postgresql.conf" ]; then
     printf "\nunix_socket_directories = '/tmp'\n" >> "$PGCONF/postgresql.conf"
   fi
 fi
+
+# ----- HBA include at runtime (safe for pg0/pg1/pg2) -----
+HBA_MAIN=/opt/bitnami/postgresql/conf/pg_hba.conf
+HBA_DIR=/opt/bitnami/postgresql/conf/hba.d
+mkdir -p "$HBA_DIR"
+
+# Ensure pg_hba.conf includes the directory (PG 16+/17 support include_dir)
+if [ -f "$HBA_MAIN" ]; then
+  if ! grep -q "include_dir '$HBA_DIR'" "$HBA_MAIN"; then
+    # try in-place; if sed fails (first boot), just append
+    sed -i "1i include_dir '$HBA_DIR'" "$HBA_MAIN" 2>/dev/null || \
+      printf "include_dir '%s'\n" "$HBA_DIR" >> "$HBA_MAIN"
+  fi
+else
+  printf "include_dir '%s'\n" "$HBA_DIR" > "$HBA_MAIN"
+fi
+
+# Minimal local/loopback & replication entries so the node can become "ready"
+cat > "$HBA_DIR/00-local.conf" <<'HBA'
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            md5
+host    all             all             ::1/128                 md5
+host    replication     repmgr          0.0.0.0/0               md5
+HBA
+
+# owner/perm sanity (Bitnami runs as uid 1001; Railway volumes mount as root)
+chown -R 1001:1001 "$HBA_DIR" "$HBA_MAIN" || true
+chmod 640 "$HBA_DIR"/00-local.conf "$HBA_MAIN" || true
+# -rw-r----- 1 1001 1001  0 Mar  1 12:00 /opt/bitnami/postgresql/conf/hba.d/00-local.conf
+# -rw-r----- 1 1001 1001  0 Mar  1 12:00 /opt/bitnami/postgresql/conf/pg_hba.conf
 
 # Hand off to Bitnami's entrypoint as the non-root user (uid:gid 1001)
 exec gosu 1001:1001 /opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh "$@"

@@ -65,29 +65,21 @@ ENV APP_VERSION="17.6.0" \
     NSS_WRAPPER_LIB="/opt/bitnami/common/lib/libnss_wrapper.so" \
     PATH="/opt/bitnami/postgresql/bin:/opt/bitnami/repmgr/bin:$PATH"
 
-# Hardcode repmgrd PID file path to /tmp
-RUN echo "repmgrd_pid_file='/tmp/repmgrd.pid'" \
-    >> /opt/bitnami/repmgr/conf/repmgr.conf
+RUN mkdir -p /opt/bitnami/repmgr/tmp \
+ && chown -R 1001:1001 /opt/bitnami/repmgr/tmp \
+ && chmod 775 /opt/bitnami/repmgr/tmp
 
-# Wrapper script: cleans /tmp pid file and starts repmgrd
-COPY <<'EOF' /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
+COPY <<'EOF' /opt/bitnami/scripts/repmgr-prestart.sh
 #!/bin/bash
 set -e
-
-echo "PID file target: $(repmgrd --show-pid-file || true)"
-
-# Clean stale pid file in /tmp
-rm -f /tmp/repmgrd.pid || true
-
-echo ">>> Starting repmgrd (foreground, pid in /tmp)..."
-exec repmgrd --daemonize=false --config-file=/opt/bitnami/repmgr/conf/repmgr.conf
+mkdir -p /opt/bitnami/repmgr/tmp
+chown -R 1001:1001 /opt/bitnami/repmgr/tmp
+chmod 775 /opt/bitnami/repmgr/tmp
+rm -f /opt/bitnami/repmgr/tmp/repmgr.pid || true
+exec "$@"
 EOF
-RUN chmod +x /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
 
+RUN chmod +x /opt/bitnami/scripts/repmgr-prestart.sh
 
-
-EXPOSE 5432
-
-USER 1001
-ENTRYPOINT [ "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh" ]
-CMD [ "/opt/bitnami/scripts/postgresql-repmgr/run.sh" ]
+ENTRYPOINT ["/opt/bitnami/scripts/repmgr-prestart.sh", "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh"]
+CMD ["/opt/bitnami/scripts/postgresql-repmgr/run.sh"]

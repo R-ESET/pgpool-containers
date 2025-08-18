@@ -1,93 +1,74 @@
-# Copyright Broadcom, Inc. All Rights Reserved.
-# SPDX-License-Identifier: APACHE-2.0
-
 FROM docker.io/bitnami/minideb:bookworm
 
 ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
 ARG TARGETARCH
-
-LABEL com.vmware.cp.artifact.flavor="sha256:c50c90cfd9d12b445b011e6ad529f1ad3daea45c26d20b00732fae3cd71f6a83" \
-      org.opencontainers.image.base.name="docker.io/bitnami/minideb:bookworm" \
-      org.opencontainers.image.created="2025-08-14T16:37:45Z" \
-      org.opencontainers.image.description="Application packaged by Broadcom, Inc." \
-      org.opencontainers.image.documentation="https://github.com/bitnami/containers/tree/main/bitnami/postgresql-repmgr/README.md" \
-      org.opencontainers.image.source="https://github.com/bitnami/containers/tree/main/bitnami/postgresql-repmgr" \
-      org.opencontainers.image.title="postgresql-repmgr" \
-      org.opencontainers.image.vendor="Broadcom, Inc." \
-      org.opencontainers.image.version="17.6.0"
 
 ENV HOME="/" \
     OS_ARCH="${TARGETARCH:-amd64}" \
     OS_FLAVOUR="debian-12" \
     OS_NAME="linux"
 
-COPY prebuildfs /
 SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
-# Install required system packages and dependencies
-RUN install_packages ca-certificates curl libbrotli1 libbsd0 libcom-err2 libcurl4 libedit2 libffi8 libgcc-s1 libgmp10 libgnutls30 libgssapi-krb5-2 libhogweed6 libicu72 libidn2-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 libldap-2.5-0 liblz4-1 liblzma5 libmd0 libnettle8 libnghttp2-14 libp11-kit0 libpcre3 libpsl5 libreadline8 librtmp1 libsasl2-2 libsqlite3-0 libssh2-1 libssl3 libstdc++6 libtasn1-6 libtinfo6 libunistring2 libuuid1 libxml2 libxslt1.1 libzstd1 locales procps zlib1g
 
+# Install required packages (including supervisor)
+RUN install_packages ca-certificates curl procps locales supervisor
+
+# Download PostgreSQL + repmgr binaries (adjust version if needed)
 RUN set -eux; \
-  mkdir -p /tmp/bitnami/pkg/cache/ && cd /tmp/bitnami/pkg/cache/ ; \
+  mkdir -p /tmp/bitnami/pkg/cache/ && cd /tmp/bitnami/pkg/cache/; \
   COMPONENTS=( \
-    "postgresql-17.6.0-0-linux-${OS_ARCH}-debian-12" \
-    "postgresql-repmgr-17.6.0-0-linux-${OS_ARCH}-debian-12" \
-  ) ; \
+    "postgresql-17.5.0-11-linux-${OS_ARCH}-debian-12" \
+    "postgresql-repmgr-17.5.0-11-linux-${OS_ARCH}-debian-12" \
+  ); \
   for COMPONENT in "${COMPONENTS[@]}"; do \
-    echo ">>> Downloading $COMPONENT from $DOWNLOADS_URL"; \
-    curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O ; \
-    curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O ; \
-    sha256sum -c "${COMPONENT}.tar.gz.sha256" ; \
-    tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner ; \
-    rm -f "${COMPONENT}.tar.gz" "${COMPONENT}.tar.gz.sha256" ; \
+    curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O; \
+    curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O; \
+    sha256sum -c "${COMPONENT}.tar.gz.sha256"; \
+    tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner; \
+    rm -f "${COMPONENT}.tar.gz" "${COMPONENT}.tar.gz.sha256"; \
   done
-  
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
-RUN chmod g+rwX /opt/bitnami
-RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
+
+# Locale setup
 RUN update-locale LANG=C.UTF-8 LC_MESSAGES=POSIX && \
     DEBIAN_FRONTEND=noninteractive dpkg-reconfigure locales && \
-    echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
-RUN echo 'en_GB.UTF-8 UTF-8' >> /etc/locale.gen
-RUN uninstall_packages curl
+    echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen && \
+    echo 'en_GB.UTF-8 UTF-8' >> /etc/locale.gen
 
-COPY rootfs /
-RUN /opt/bitnami/scripts/postgresql-repmgr/postunpack.sh
-RUN update-locale LANG=C.UTF-8 LC_MESSAGES=POSIX && \
-    DEBIAN_FRONTEND=noninteractive dpkg-reconfigure locales && \
-    echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
-RUN echo 'en_GB.UTF-8 UTF-8' >> /etc/locale.gen
-RUN /opt/bitnami/scripts/locales/generate-locales.sh
-ENV APP_VERSION="17.6.0" \
-    BITNAMI_APP_NAME="postgresql-repmgr" \
-    LANG="en_US.UTF-8" \
-    LANGUAGE="en_US:en" \
-    NSS_WRAPPER_LIB="/opt/bitnami/common/lib/libnss_wrapper.so" \
-    PATH="/opt/bitnami/postgresql/bin:/opt/bitnami/repmgr/bin:$PATH"
+# Ensure proper dirs and permissions
+RUN mkdir -p /bitnami /opt/bitnami/repmgr/tmp /opt/bitnami/postgresql/logs \
+ && chown -R 1001:1001 /opt/bitnami /bitnami /tmp \
+ && chmod -R 775 /opt/bitnami/repmgr/tmp
 
-# Hardcode repmgrd PID file path to /tmp
+# Hardcode repmgrd PID file in /tmp
 RUN echo "repmgrd_pid_file='/tmp/repmgrd.pid'" \
     >> /opt/bitnami/repmgr/conf/repmgr.conf
 
-# Wrapper script: cleans /tmp pid file and starts repmgrd
-COPY <<'EOF' /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
-#!/bin/bash
-set -e
+# Supervisord configuration
+COPY <<'EOF' /etc/supervisor/conf.d/supervisord.conf
+[supervisord]
+nodaemon=true
+user=root
+logfile=/var/log/supervisord.log
+pidfile=/var/run/supervisord.pid
 
-echo "PID file target: $(repmgrd --show-pid-file || true)"
+[program:postgresql]
+command=/opt/bitnami/postgresql/bin/postgres -D /bitnami/postgresql/data -c config_file=/opt/bitnami/postgresql/conf/postgresql.conf
+autostart=true
+autorestart=true
+user=1001
+stdout_logfile=/dev/stdout
+stderr_logfile=/dev/stderr
 
-# Clean stale pid file in /tmp
-rm -f /tmp/repmgrd.pid || true
-
-echo ">>> Starting repmgrd (foreground, pid in /tmp)..."
-exec repmgrd --daemonize=false --config-file=/opt/bitnami/repmgr/conf/repmgr.conf
+[program:repmgrd]
+command=/opt/bitnami/repmgr/bin/repmgrd --config-file=/opt/bitnami/repmgr/conf/repmgr.conf --daemonize=false
+autostart=true
+autorestart=true
+user=1001
+stdout_logfile=/dev/stdout
+stderr_logfile=/dev/stderr
 EOF
-RUN chmod +x /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
-
-
 
 EXPOSE 5432
 
-USER 1001
-ENTRYPOINT [ "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh" ]
-CMD [ "/opt/bitnami/scripts/postgresql-repmgr/run.sh" ]
+# Run under supervisord
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

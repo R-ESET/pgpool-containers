@@ -23,8 +23,10 @@ ENV HOME="/" \
 
 COPY prebuildfs /
 SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+
 # Install required system packages and dependencies
 RUN install_packages ca-certificates curl libbrotli1 libbsd0 libcom-err2 libcurl4 libedit2 libffi8 libgcc-s1 libgmp10 libgnutls30 libgssapi-krb5-2 libhogweed6 libicu72 libidn2-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 libldap-2.5-0 liblz4-1 liblzma5 libmd0 libnettle8 libnghttp2-14 libp11-kit0 libpcre3 libpsl5 libreadline8 librtmp1 libsasl2-2 libsqlite3-0 libssh2-1 libssl3 libstdc++6 libtasn1-6 libtinfo6 libunistring2 libuuid1 libxml2 libxslt1.1 libzstd1 locales procps zlib1g
+
 RUN set -eux; \
   mkdir -p /tmp/bitnami/pkg/cache/ && cd /tmp/bitnami/pkg/cache/; \
   COMPONENTS=( \
@@ -38,6 +40,7 @@ RUN set -eux; \
     tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner; \
     rm -f "${COMPONENT}.tar.gz" "${COMPONENT}.tar.gz.sha256"; \
   done
+
 RUN chown -R 1001:1001 /opt/bitnami/postgresql /bitnami || true
 RUN apt-get update && apt-get upgrade -y && \
     apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
@@ -56,6 +59,7 @@ RUN update-locale LANG=C.UTF-8 LC_MESSAGES=POSIX && \
     echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
 RUN echo 'en_GB.UTF-8 UTF-8' >> /etc/locale.gen
 RUN /opt/bitnami/scripts/locales/generate-locales.sh
+
 ENV APP_VERSION="17.5.0" \
     BITNAMI_APP_NAME="postgresql-repmgr" \
     LANG="en_US.UTF-8" \
@@ -63,13 +67,27 @@ ENV APP_VERSION="17.5.0" \
     NSS_WRAPPER_LIB="/opt/bitnami/common/lib/libnss_wrapper.so" \
     PATH="/opt/bitnami/postgresql/bin:/opt/bitnami/repmgr/bin:$PATH"
 
-# Fix: Ensure repmgr tmp dir exists, correct perms, and no stale pid
+# ✅ Ensure repmgr tmp dir is safe
 RUN mkdir -p /opt/bitnami/repmgr/tmp \
- && chown -R 1001:1001 /opt/bitnami/repmgr \
- && rm -f /opt/bitnami/repmgr/tmp/repmgr.pid
+ && rm -f /opt/bitnami/repmgr/tmp/repmgr.pid \
+ && chown -R 1001:1001 /opt/bitnami/repmgr
+
+# ✅ Add wrapper script to safely start repmgrd without PID issues
+COPY <<'EOF' /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
+#!/bin/bash
+set -e
+
+# Clean stale pid
+rm -f /opt/bitnami/repmgr/tmp/repmgr.pid
+chown -R 1001:1001 /opt/bitnami/repmgr/tmp
+
+echo ">>> Starting repmgrd in foreground mode (no pid file)..."
+exec repmgrd --daemonize=false --no-pid-file
+EOF
+RUN chmod +x /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
 
 EXPOSE 5432
 
 USER 1001
 ENTRYPOINT [ "/opt/bitnami/scripts/postgresql-repmgr/entrypoint.sh" ]
-CMD [ "/opt/bitnami/scripts/postgresql-repmgr/run.sh" ]
+CMD [ "/opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh" ]

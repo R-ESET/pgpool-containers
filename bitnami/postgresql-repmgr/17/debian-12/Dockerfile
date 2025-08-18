@@ -63,6 +63,11 @@ ENV APP_VERSION="17.5.0" \
     NSS_WRAPPER_LIB="/opt/bitnami/common/lib/libnss_wrapper.so" \
     PATH="/opt/bitnami/postgresql/bin:/opt/bitnami/repmgr/bin:$PATH"
 
+# Fix: Ensure repmgr tmp dir exists, correct perms, and no stale pid
+RUN mkdir -p /opt/bitnami/repmgr/tmp \
+ && chown -R 1001:1001 /opt/bitnami/repmgr \
+ && rm -f /opt/bitnami/repmgr/tmp/repmgr.pid
+
 EXPOSE 5432
 
 USER 1001

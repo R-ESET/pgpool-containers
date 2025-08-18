@@ -65,28 +65,22 @@ ENV APP_VERSION="17.6.0" \
     NSS_WRAPPER_LIB="/opt/bitnami/common/lib/libnss_wrapper.so" \
     PATH="/opt/bitnami/postgresql/bin:/opt/bitnami/repmgr/bin:$PATH"
 
-# Ensure repmgr tmp folder exists and is owned by UID 1001
-RUN mkdir -p /opt/bitnami/repmgr/tmp \
- && chown -R 1001:1001 /opt/bitnami/repmgr/tmp \
- && rm -f /opt/bitnami/repmgr/tmp/repmgr.pid
-
-# Hardcode repmgrd PID file path in config
-RUN echo "repmgrd_pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'" \
+# Hardcode repmgrd PID file path to /tmp
+RUN echo "repmgrd_pid_file='/tmp/repmgrd.pid'" \
     >> /opt/bitnami/repmgr/conf/repmgr.conf
 
-# Wrapper script: cleans PID and starts repmgrd safely
+# Wrapper script: cleans /tmp pid file and starts repmgrd
 COPY <<'EOF' /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
 #!/bin/bash
 set -e
 
 echo "PID file target: $(repmgrd --show-pid-file || true)"
 
-# Clean stale pid file
-rm -f /opt/bitnami/repmgr/tmp/repmgr.pid || true
-chown -R 1001:1001 /opt/bitnami/repmgr/tmp
+# Clean stale pid file in /tmp
+rm -f /tmp/repmgrd.pid || true
 
-echo ">>> Starting repmgrd (foreground)..."
-exec repmgrd --daemonize=false
+echo ">>> Starting repmgrd (foreground, pid in /tmp)..."
+exec repmgrd --daemonize=false --config-file=/opt/bitnami/repmgr/conf/repmgr.conf
 EOF
 RUN chmod +x /opt/bitnami/scripts/postgresql-repmgr/start-repmgrd.sh
 

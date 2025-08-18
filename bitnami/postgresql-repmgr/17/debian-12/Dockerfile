@@ -77,13 +77,19 @@ RUN printf "\nrepmgrd_pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'\n" \
 
 ENV TMPDIR="/opt/bitnami/repmgr/tmp" \
     REPMGRD_PIDFILE="/opt/bitnami/repmgr/tmp/repmgr.pid"
-RUN mkdir -p /opt/bitnami/postgresql/conf/conf.d && \
-    printf "%s\n" \
-    "local   all             all                                     trust" \
-    "host    all             all             127.0.0.1/32            md5" \
-    "host    all             all             ::1/128                 md5" \
-    "host    replication     repmgr          0.0.0.0/0               md5" \
-    > /opt/bitnami/postgresql/conf/conf.d/00-local-hba.conf
+
+# Create an include dir for HBA and tell pg_hba.conf to load it
+RUN mkdir -p /opt/bitnami/postgresql/conf/hba.d \
+ && sed -i "1i include_dir '/opt/bitnami/postgresql/conf/hba.d'" /opt/bitnami/postgresql/conf/pg_hba.conf
+
+# Drop your local rules into hba.d (these are examples; adjust CIDRs to your network)
+RUN printf "%s\n" \
+  "local   all             all                                     trust" \
+  "host    all             all             127.0.0.1/32            md5" \
+  "host    all             all             ::1/128                 md5" \
+  "host    replication     repmgr          0.0.0.0/0               md5" \
+  > /opt/bitnami/postgresql/conf/hba.d/00-local.conf
+  
 # Root entrypoint: fix Railway volume perms each start, then drop to 1001
 COPY <<'EOF' /opt/bitnami/scripts/repmgr-root-entrypoint.sh
 #!/bin/sh

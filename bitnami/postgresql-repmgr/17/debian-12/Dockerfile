@@ -168,4 +168,5 @@ RUN chmod +x /opt/bitnami/scripts/repmgr-root-entrypoint.sh
 # IMPORTANT: run as root so we can chown at runtime on Railway volumes
 USER root
 ENTRYPOINT ["/opt/bitnami/scripts/repmgr-root-entrypoint.sh"]
-CMD ["/opt/bitnami/scripts/postgresql-repmgr/run.sh"]
+# CMD ["/opt/bitnami/scripts/postgresql-repmgr/run.sh"]
+CMD ["/opt/bitnami/postgresql/bin/postgres", "-D", "/bitnami/postgresql/data", "-c", "config_file=/opt/bitnami/postgresql/conf/postgresql.conf"]

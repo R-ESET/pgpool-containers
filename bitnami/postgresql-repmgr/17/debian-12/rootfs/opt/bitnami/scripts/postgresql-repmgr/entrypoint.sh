@@ -52,6 +52,8 @@ if [ ! -f "$PGDATA/postgresql.conf" ]; then
 
   # Patch pg_hba.conf so it doesn't point at /opt
   sed -i "s|/opt/bitnami/postgresql/conf/hba.d|hba.d|g" "$PGDATA/pg_hba.conf"
+  sed -i "s|'/bitnami/postgresql/data/hba.d'|'hba.d'|g" "$PGDATA/pg_hba.conf"
+  sed -i "s|\"/bitnami/postgresql/data/hba.d\"|'hba.d'|g" "$PGDATA/pg_hba.conf"
 
   # Ensure hba.d dir exists inside PGDATA
   mkdir -p "$PGDATA/hba.d"
@@ -59,6 +61,7 @@ if [ ! -f "$PGDATA/postgresql.conf" ]; then
   chown -R 1001:1001 "$PGDATA"
   chmod 640 "$PGDATA/"*.conf
 fi
+
 
 
 echo ""

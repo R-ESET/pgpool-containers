@@ -68,12 +68,12 @@ if [ -f "$PGDATA/pg_hba.conf" ]; then
   chmod 750 "$PGDATA/hba.d"
 
   # Inject a minimal rule so it can start
-  cat > "$PGDATA/hba.d/00-local.conf" <<'EOF'
-    local   all             all                                     trust
-    host    all             all             127.0.0.1/32            md5
-    host    all             all             ::1/128                 md5
-    host    replication     repmgr          0.0.0.0/0               md5
-    EOF
+cat > "$PGDATA/hba.d/00-local.conf" <<'EOF'
+  local   all             all                                     trust
+  host    all             all             127.0.0.1/32            md5
+  host    all             all             ::1/128                 md5
+  host    replication     repmgr          0.0.0.0/0               md5
+EOF
   chown 1001:1001 "$PGDATA/hba.d/00-local.conf"
   chmod 640 "$PGDATA/hba.d/00-local.conf"
 fi

@@ -34,7 +34,7 @@ fi
 PGDATA="${POSTGRESQL_DATA_DIR:-/bitnami/postgresql/data}"
 CONF_SRC="/opt/bitnami/postgresql/conf"
 
-# Ensure base conf exists
+# Ensure base conf exists or exists
 if [ ! -f "$PGDATA/postgresql.conf" ]; then
   echo "ℹ️ postgresql.conf missing, copying default"
   cp /opt/bitnami/postgresql/conf/postgresql.conf "$PGDATA/"

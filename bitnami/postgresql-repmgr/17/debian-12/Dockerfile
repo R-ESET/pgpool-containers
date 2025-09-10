@@ -169,4 +169,4 @@ RUN chmod +x /opt/bitnami/scripts/repmgr-root-entrypoint.sh
 USER root
 ENTRYPOINT ["/opt/bitnami/scripts/repmgr-root-entrypoint.sh"]
 # CMD ["/opt/bitnami/scripts/postgresql-repmgr/run.sh"]
-CMD ["/opt/bitnami/postgresql/bin/postgres", "-D", "/bitnami/postgresql/data", "-c", "config_file=/opt/bitnami/postgresql/conf/postgresql.conf"]
+CMD ["/opt/bitnami/postgresql/bin/postgres", "-D", "/bitnami/postgresql/data"]

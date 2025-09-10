@@ -98,9 +98,16 @@ rm -f "${REPMGRD_PIDFILE:-/opt/bitnami/repmgr/tmp/repmgr.pid}" /tmp/repmgrd.pid 
 PGDATA="${POSTGRESQL_DATA_DIR:-/bitnami/postgresql/data}"
 rm -f "$PGDATA/postmaster.pid" "$PGDATA"/postmaster.opts 2>/dev/null || true
 
-# If no cluster yet, make sure PGDATA is truly empty so pg_basebackup can populate it
+# If no cluster yet, make sure PGDATA is truly empty so pg_basebackup can populate it this was deleting database
+# if [ ! -f "$PGDATA/PG_VERSION" ]; then
+#   find "$PGDATA" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+# fi
+
 if [ ! -f "$PGDATA/PG_VERSION" ]; then
-  find "$PGDATA" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+  echo "⚠️  ERROR: PG_VERSION not found in $PGDATA"
+  echo "⚠️  Refusing to wipe data directory automatically."
+  echo "⚠️  If you intend to initialize a fresh cluster, clear the directory manually."
+  exit 1
 fi
 
 # Ensure a valid unix socket directory (default to /tmp if not set)

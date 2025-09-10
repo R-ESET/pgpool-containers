@@ -33,7 +33,7 @@ cp -nr "$POSTGRESQL_DEFAULT_CONF_DIR"/. "$POSTGRESQL_CONF_DIR"
 if [[ "$*" = *"/opt/bitnami/scripts/postgresql-repmgr/run.sh"* ]]; then
     if [ ! -f "$POSTGRESQL_TMP_DIR/.initialized" ]; then
 
-        info "** First run detected: Starting PostgreSQL with Replication Manager setup **"
+        info "** First run detected:Starting PostgreSQL with Replication Manager setup **"
         /opt/bitnami/scripts/postgresql-repmgr/setup.sh
         touch "$POSTGRESQL_TMP_DIR"/.initialized
         info "** PostgreSQL with Replication Manager setup finished! **"

@@ -30,17 +30,17 @@ postgresql_enable_nss_wrapper
 debug "Copying files from $POSTGRESQL_DEFAULT_CONF_DIR to $POSTGRESQL_CONF_DIR"
 cp -nr "$POSTGRESQL_DEFAULT_CONF_DIR"/. "$POSTGRESQL_CONF_DIR"
 
-# ---- SAFETY PATCH ----
-PGDATA="${POSTGRESQL_DATA_DIR:-/bitnami/postgresql/data}"
-CONF_SRC="/opt/bitnami/postgresql/conf"
+if [[ "$*" = *"/opt/bitnami/scripts/postgresql-repmgr/run.sh"* ]]; then
+    if [ ! -f "$POSTGRESQL_TMP_DIR/.initialized" ]; then
 
-if [ ! -f "$PGDATA/pg_hba.conf" ]; then
-  echo "ℹ️  Copying missing pg_hba.conf and postgresql.conf into $PGDATA"
-  cp "$CONF_SRC/pg_hba.conf" "$PGDATA/"
-  cp "$CONF_SRC/postgresql.conf" "$PGDATA/"
-  chown 1001:1001 "$PGDATA/pg_hba.conf" "$PGDATA/postgresql.conf"
-  chmod 640 "$PGDATA/pg_hba.conf" "$PGDATA/postgresql.conf"
+        info "** First run detected: Starting PostgreSQL with Replication Manager setup **"
+        /opt/bitnami/scripts/postgresql-repmgr/setup.sh
+        touch "$POSTGRESQL_TMP_DIR"/.initialized
+        info "** PostgreSQL with Replication Manager setup finished! **"
+    else
+      info "** Existing cluster detected: skipping setup.sh **"
+  fi
 fi
 
-# Hand off to the final command (Postgres)
+echo ""
 exec "$@"

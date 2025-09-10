@@ -55,13 +55,12 @@ if [ ! -f "$PGDATA/pg_hba.conf" ]; then
 fi
 
 # Now patch pg_hba.conf to point to a relative hba.d
-if [ -f "$PGDATA/pg_hba.conf" ]; then
-  echo "ℹ️  Ensuring pg_hba.conf has correct include_dir"
-  sed -i "s|include_dir.*|include_dir = 'hba.d'|" "$PGDATA/pg_hba.conf"
-  sed -i "s|/opt/bitnami/postgresql/conf/hba.d|hba.d|g" "$PGDATA/postgresql.conf"
-  if ! grep -q "include_dir = 'hba.d'" "$PGDATA/pg_hba.conf"; then
-        echo "include_dir = 'hba.d'" >> "$PGDATA/pg_hba.conf"
+if [ -f "$PGDATA/postgresql.conf" ]; then
+  echo "ℹ️  Ensuring postgresql.conf has include_dir for hba.d"
+  if ! grep -q "include_dir = 'hba.d'" "$PGDATA/postgresql.conf"; then
+    echo "include_dir = 'hba.d'" >> "$PGDATA/postgresql.conf"
   fi
+
 
   mkdir -p "$PGDATA/hba.d"
   chown -R 1001:1001 "$PGDATA/hba.d"
@@ -69,10 +68,10 @@ if [ -f "$PGDATA/pg_hba.conf" ]; then
 
   # Inject a minimal rule so it can start
 cat > "$PGDATA/hba.d/00-local.conf" <<'EOF'
-  local   all             all                                     trust
-  host    all             all             127.0.0.1/32            md5
-  host    all             all             ::1/128                 md5
-  host    replication     repmgr          0.0.0.0/0               md5
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            md5
+host    all             all             ::1/128                 md5
+host    replication     repmgr          0.0.0.0/0               md5
 EOF
   chown 1001:1001 "$PGDATA/hba.d/00-local.conf"
   chmod 640 "$PGDATA/hba.d/00-local.conf"

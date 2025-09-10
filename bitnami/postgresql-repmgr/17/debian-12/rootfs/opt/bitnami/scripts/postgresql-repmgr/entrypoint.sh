@@ -45,15 +45,35 @@ fi
 PGDATA="${POSTGRESQL_DATA_DIR:-/bitnami/postgresql/data}"
 CONF_SRC="/opt/bitnami/postgresql/conf"
 
+# If pg_hba.conf is missing completely → copy defaults
+if [ ! -f "$PGDATA/pg_hba.conf" ]; then
+  echo "ℹ️  pg_hba.conf missing in $PGDATA, copying from $CONF_SRC"
+  cp "$CONF_SRC/pg_hba.conf" "$PGDATA/"
+  cp "$CONF_SRC/postgresql.conf" "$PGDATA/"
+  chown 1001:1001 "$PGDATA/"*.conf
+  chmod 640 "$PGDATA/"*.conf
+fi
+
+# Now patch pg_hba.conf to point to a relative hba.d
 if [ -f "$PGDATA/pg_hba.conf" ]; then
-    echo "ℹ️  Ensuring pg_hba.conf has correct include_dir"
-    sed -i "s|include_dir.*|include_dir 'hba.d'|" "$PGDATA/pg_hba.conf"  
-    if ! grep -q "include_dir 'hba.d'" "$PGDATA/pg_hba.conf"; then
-        echo "include_dir 'hba.d'" >> "$PGDATA/pg_hba.conf"
-    fi
-    mkdir -p "$PGDATA/hba.d"
-    chown -R 1001:1001 "$PGDATA/hba.d"
-    chmod 750 "$PGDATA/hba.d"
+  echo "ℹ️  Ensuring pg_hba.conf has correct include_dir"
+  sed -i "s|include_dir.*|include_dir 'hba.d'|" "$PGDATA/pg_hba.conf"
+  if ! grep -q "include_dir 'hba.d'" "$PGDATA/pg_hba.conf"; then
+    echo "include_dir 'hba.d'" >> "$PGDATA/pg_hba.conf"
+  fi
+
+  mkdir -p "$PGDATA/hba.d"
+  chown -R 1001:1001 "$PGDATA/hba.d"
+  chmod 750 "$PGDATA/hba.d"
+
+  # Inject a minimal rule so it can start
+  cat > "$PGDATA/hba.d/00-local.conf" <<'EOF'
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            md5
+host    all             all             ::1/128                 md5
+EOF
+  chown 1001:1001 "$PGDATA/hba.d/00-local.conf"
+  chmod 640 "$PGDATA/hba.d/00-local.conf"
 fi
 
 echo ""

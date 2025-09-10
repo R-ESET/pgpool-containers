@@ -71,7 +71,7 @@
 
 
 
-# Force repmgrd PID path Bitnami expects
+# Force repmgrd PID path Bitnami expect
 RUN printf "\nrepmgrd_pid_file='/opt/bitnami/repmgr/tmp/repmgr.pid'\n" \
     >> /opt/bitnami/repmgr/conf/repmgr.conf
 

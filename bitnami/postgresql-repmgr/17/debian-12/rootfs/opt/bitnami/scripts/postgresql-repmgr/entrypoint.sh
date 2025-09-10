@@ -51,7 +51,7 @@ if [ ! -f "$PGDATA/postgresql.conf" ]; then
   cp "$CONF_SRC/pg_hba.conf" "$PGDATA/"
 
   # Patch pg_hba.conf so it doesn't point at /opt
-  sed -i "s|/opt/bitnami/postgresql/conf/hba.d|hba.d|g" "$PGDATA/pg_hba.conf"
+  sed -i "s|.*include_dir.*|include_dir 'hba.d'|g" "$PGDATA/pg_hba.conf"  
   sed -i "s|'/bitnami/postgresql/data/hba.d'|'hba.d'|g" "$PGDATA/pg_hba.conf"
   sed -i "s|\"/bitnami/postgresql/data/hba.d\"|'hba.d'|g" "$PGDATA/pg_hba.conf"
 

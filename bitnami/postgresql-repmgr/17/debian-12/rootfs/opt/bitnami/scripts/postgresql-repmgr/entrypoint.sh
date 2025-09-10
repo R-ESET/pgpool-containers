@@ -34,13 +34,25 @@ if [[ "$*" = *"/opt/bitnami/scripts/postgresql-repmgr/run.sh"* ]]; then
     if [ ! -f "$POSTGRESQL_TMP_DIR/.initialized" ]; then
 
         info "** First run detected:Starting PostgreSQL with Replication Manager setup **"
-        /opt/bitnami/scripts/postgresql-repmgr/setup.sh
+         # /opt/bitnami/scripts/postgresql-repmgr/setup.sh
         touch "$POSTGRESQL_TMP_DIR"/.initialized
         info "** PostgreSQL with Replication Manager setup finished! **"
     else
       info "** Existing cluster detected: skipping setup.sh **"
   fi
 fi
+
+PGDATA="${POSTGRESQL_DATA_DIR:-/bitnami/postgresql/data}"
+CONF_SRC="/opt/bitnami/postgresql/conf"
+
+if [ ! -f "$PGDATA/postgresql.conf" ]; then
+  echo "ℹ️  postgresql.conf missing, copying from default"
+  cp "$CONF_SRC/postgresql.conf" "$PGDATA/"
+  cp "$CONF_SRC/pg_hba.conf" "$PGDATA/"
+  chown 1001:1001 "$PGDATA/"*.conf
+  chmod 640 "$PGDATA/"*.conf
+fi
+
 
 echo ""
 exec "$@"

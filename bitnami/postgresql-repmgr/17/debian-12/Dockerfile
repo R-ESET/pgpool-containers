@@ -104,10 +104,16 @@ rm -f "$PGDATA/postmaster.pid" "$PGDATA"/postmaster.opts 2>/dev/null || true
 # fi
 
 if [ ! -f "$PGDATA/PG_VERSION" ]; then
-  echo "⚠️  ERROR: PG_VERSION not found in $PGDATA"
-  echo "⚠️  Refusing to wipe data directory automatically."
-  echo "⚠️  If you intend to initialize a fresh cluster, clear the directory manually."
-  exit 1
+  if [ -z "$(ls -A "$PGDATA" 2>/dev/null)" ]; then
+    echo "ℹ️  PG_VERSION not found, but $PGDATA is empty."
+    echo "ℹ️  Initializing a fresh PostgreSQL cluster..."
+    /opt/bitnami/scripts/postgresql-repmgr/setup.sh
+  else
+    echo "❌ ERROR: PG_VERSION not found in $PGDATA but directory is not empty!"
+    echo "❌ Refusing to start to protect existing data."
+    echo "❌ Please investigate or clear the directory manually if you intend to reinit."
+    exit 1
+  fi
 fi
 
 # Ensure a valid unix socket directory (default to /tmp if not set)

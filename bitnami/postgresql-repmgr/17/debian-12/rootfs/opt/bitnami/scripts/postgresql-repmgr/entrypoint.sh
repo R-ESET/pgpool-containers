@@ -45,24 +45,16 @@ fi
 PGDATA="${POSTGRESQL_DATA_DIR:-/bitnami/postgresql/data}"
 CONF_SRC="/opt/bitnami/postgresql/conf"
 
-if [ ! -f "$PGDATA/postgresql.conf" ]; then
-  echo "ℹ️  postgresql.conf missing, copying from default"
-  cp "$CONF_SRC/postgresql.conf" "$PGDATA/"
-  cp "$CONF_SRC/pg_hba.conf" "$PGDATA/"
-
-  # Patch pg_hba.conf so it doesn't point at /opt
-  sed -i "s|.*include_dir.*|include_dir 'hba.d'|g" "$PGDATA/pg_hba.conf"  
-  sed -i "s|'/bitnami/postgresql/data/hba.d'|'hba.d'|g" "$PGDATA/pg_hba.conf"
-  sed -i "s|\"/bitnami/postgresql/data/hba.d\"|'hba.d'|g" "$PGDATA/pg_hba.conf"
-
-  # Ensure hba.d dir exists inside PGDATA
-  mkdir -p "$PGDATA/hba.d"
-
-  chown -R 1001:1001 "$PGDATA"
-  chmod 640 "$PGDATA/"*.conf
+if [ -f "$PGDATA/pg_hba.conf" ]; then
+    echo "ℹ️  Ensuring pg_hba.conf has correct include_dir"
+    sed -i "s|include_dir.*|include_dir 'hba.d'|" "$PGDATA/pg_hba.conf"  
+    if ! grep -q "include_dir 'hba.d'" "$PGDATA/pg_hba.conf"; then
+        echo "include_dir 'hba.d'" >> "$PGDATA/pg_hba.conf"
+    fi
+    mkdir -p "$PGDATA/hba.d"
+    chown -R 1001:1001 "$PGDATA/hba.d"
+    chmod 750 "$PGDATA/hba.d"
 fi
-
-
 
 echo ""
 exec "$@"

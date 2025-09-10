@@ -36,33 +36,26 @@ CONF_SRC="/opt/bitnami/postgresql/conf"
 
 # Ensure base conf exists
 if [ ! -f "$PGDATA/postgresql.conf" ]; then
-    echo "ℹ️  postgresql.conf missing, copying from $CONF_SRC"
-    cp "$CONF_SRC/postgresql.conf" "$PGDATA/"
-    chown 1001:1001 "$PGDATA/postgresql.conf"
-    chmod 640 "$PGDATA/postgresql.conf"
-fi
-if [ ! -f "$PGDATA/pg_hba.conf" ]; then
-    echo "ℹ️  pg_hba.conf missing, copying from $CONF_SRC"
-    cp "$CONF_SRC/pg_hba.conf" "$PGDATA/"
-    chown 1001:1001 "$PGDATA/pg_hba.conf"
-    chmod 640 "$PGDATA/pg_hba.conf"
+  echo "ℹ️ postgresql.conf missing, copying default"
+  cp /opt/bitnami/postgresql/conf/postgresql.conf "$PGDATA/"
 fi
 
-# ---- FIX START ----
-# 1. Clean pg_hba.conf (remove bad include_dir)
+# Ensure pg_hba.conf exists
+if [ ! -f "$PGDATA/pg_hba.conf" ]; then
+  echo "ℹ️ pg_hba.conf missing, copying default"
+  cp /opt/bitnami/postgresql/conf/pg_hba.conf "$PGDATA/"
+fi
+
+# Force include_dir only in postgresql.conf (NOT in pg_hba.conf)
+if ! grep -q "include_dir = 'hba.d'" "$PGDATA/postgresql.conf"; then
+  echo "include_dir = 'hba.d'" >> "$PGDATA/postgresql.conf"
+fi
+
+# Remove any bad 'include_dir' lines from pg_hba.conf
 sed -i "/include_dir/d" "$PGDATA/pg_hba.conf"
 
-# 2. Patch postgresql.conf with include_dir for hba.d
-if ! grep -q "include_dir = 'hba.d'" "$PGDATA/postgresql.conf"; then
-    echo "include_dir = 'hba.d'" >> "$PGDATA/postgresql.conf"
-fi
-
-# 3. Ensure hba.d exists
+# Create hba.d directory with safe defaults
 mkdir -p "$PGDATA/hba.d"
-chown -R 1001:1001 "$PGDATA/hba.d"
-chmod 750 "$PGDATA/hba.d"
-
-# 4. Inject minimal working HBA rules
 cat > "$PGDATA/hba.d/00-local.conf" <<'EOF'
 local   all             all                                     trust
 host    all             all             127.0.0.1/32            md5
@@ -70,9 +63,9 @@ host    all             all             ::1/128                 md5
 host    replication     repmgr          0.0.0.0/0               md5
 EOF
 
-chown 1001:1001 "$PGDATA/hba.d/00-local.conf"
-chmod 640 "$PGDATA/hba.d/00-local.conf"
-# ---- FIX END ----
-
+# Permissions
+chown -R 1001:1001 "$PGDATA"
+chmod 640 "$PGDATA/"*.conf
+chmod 750 "$PGDATA/hba.d"
 echo ""
 exec "$@"

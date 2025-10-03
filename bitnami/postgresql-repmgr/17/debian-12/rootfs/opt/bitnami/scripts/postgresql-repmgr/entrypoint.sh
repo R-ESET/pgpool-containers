@@ -40,7 +40,7 @@ if [ ! -f "$PGDATA/postgresql.conf" ]; then
   cp /opt/bitnami/postgresql/conf/postgresql.conf "$PGDATA/"
 fi
 
-# Ensure pg_hba.conf exists
+# Ensure pg_hba.conf 
 if [ ! -f "$PGDATA/pg_hba.conf" ]; then
   echo "ℹ️ pg_hba.conf missing, copying default"
   cp /opt/bitnami/postgresql/conf/pg_hba.conf "$PGDATA/"

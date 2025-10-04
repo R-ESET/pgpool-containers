@@ -17,7 +17,7 @@ export MODULE=postgresql-repmgr
 print_welcome_page
 postgresql_enable_nss_wrapper
 
-# Copy defaults
+# Copy default
 debug "Copying files from $POSTGRESQL_DEFAULT_CONF_DIR to $POSTGRESQL_CONF_DIR"
 cp -nr "$POSTGRESQL_DEFAULT_CONF_DIR"/. "$POSTGRESQL_CONF_DIR"
 

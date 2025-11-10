@@ -41,7 +41,7 @@ fi
 if [[ "$*" = *"/opt/bitnami/scripts/pgpool/run.sh"* ]]; then
     info "** Starting Pgpool-II setup **"
     /opt/bitnami/scripts/pgpool/setup.sh
-    info "** Pgpool-II setup finished! **"
+    info "** Pgpool-II setup finished **"
 fi
 
 echo ""
